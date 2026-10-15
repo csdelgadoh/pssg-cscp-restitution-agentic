@@ -31,6 +31,20 @@ jobs:
     # [5] fetch -> registry login -> names+labels -> build+push -> scan -> report
     steps:
       - uses: actions/checkout@v7
+      - name: Check tracked files for secrets
+        run: |
+          if git grep -lIE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KE[Y]|AKIA[0-9A-Z]{16}'; then
+            echo "Secret pattern found in the files listed above"
+            exit 1
+          fi
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+      - name: Check API packages for HIGH or CRITICAL advisories
+        run: |
+          dotnet restore restitution-app/restitution-app.csproj
+          dotnet list restitution-app/restitution-app.csproj package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -E 'NU1900|NU1903|NU1904|^\s+>.*\s(High|Critical)\s' vulnerable.txt; then exit 1; fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -58,12 +72,3 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max                    # SLSA provenance
           sbom: true                              # SPDX SBOM
-      - uses: aquasecurity/trivy-action@v0.36.0    # third-party — pin to commit SHA when hardening
-        with:
-          image-ref: ${{ secrets.OCP4_REGISTRY }}/${{ secrets.OCP4_NAMESPACE }}/restitution-api:latest
-          format: sarif
-          output: trivy-restitution-api.sarif
-      - uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-restitution-api.sarif
-          category: trivy-restitution-api
