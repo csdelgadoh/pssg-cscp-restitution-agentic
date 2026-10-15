@@ -418,12 +418,20 @@ export class FormBase {
 
     if (addressControl instanceof UntypedFormGroup) control = addressControl;
 
-    let line1 = control.value.line1 || '';
-    let line2 = control.value.line2 || '';
-    let city = control.value.city || '';
-    let postalCode = control.value.postalCode || '';
-    let province = control.value.province || '';
-    let country = control.value.country || '';
+    const encode = (value: any): string =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    let line1 = encode(control.value.line1);
+    let line2 = encode(control.value.line2);
+    let city = encode(control.value.city);
+    let postalCode = encode(control.value.postalCode);
+    let province = encode(control.value.province);
+    let country = encode(control.value.country);
 
     let address = line1 + '<br />';
     if (line2 != '') address += line2 + '<br />';
