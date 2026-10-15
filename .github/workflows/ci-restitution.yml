@@ -53,12 +53,25 @@ jobs:
         run: |
           npm install --legacy-peer-deps --ignore-scripts
           npm run buildprod
+      - name: Check UI packages for HIGH or CRITICAL advisories
+        working-directory: restitution-app/ClientApp
+        run: npm audit --audit-level=high --omit=dev
 
       # ── API HALF: compile the .NET app (no CSharpier gate on restitution) ──
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
       - run: dotnet build restitution-app/restitution-app.csproj -c Release
+      - name: Check API packages for HIGH or CRITICAL advisories
+        run: |
+          dotnet list restitution-app/restitution-app.csproj package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -E 'NU1900|NU1903|NU1904|^\s+>.*\s(High|Critical)\s' vulnerable.txt; then exit 1; fi
+      - name: Check tracked files for secrets
+        run: |
+          if git grep -lIE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KE[Y]|AKIA[0-9A-Z]{16}'; then
+            echo "Secret pattern found in the files listed above"
+            exit 1
+          fi
 
       # ── WHOLE CODEBASE: CodeQL writes its report — C# + TypeScript, one run ──
       - uses: github/codeql-action/analyze@v4
